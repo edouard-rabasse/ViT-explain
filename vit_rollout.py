@@ -34,6 +34,7 @@ def rollout(attentions, discard_ratio, head_fusion):
     
     # Look at the total attention between the class token,
     # and the image patches
+    print("size of result", result.size())
     mask = result[0, 0 , 1 :]
     # In case of 224x224 image, this brings us from 196 to 14
     width = int(mask.size(-1)**0.5)
@@ -54,6 +55,7 @@ class VITAttentionRollout:
         self.attentions = []
 
     def get_attention(self, module, input, output):
+        print("called")
         self.attentions.append(output.cpu())
 
     def __call__(self, input_tensor):

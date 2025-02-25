@@ -62,7 +62,7 @@ if __name__ == '__main__':
     if args.category_index is None:
         print("Doing Attention Rollout")
         attention_rollout = VITAttentionRollout(model, head_fusion=args.head_fusion, 
-            discard_ratio=args.discard_ratio)
+            discard_ratio=args.discard_ratio, attention_layer_name='attn_drop') # https://github.com/jacobgil/vit-explain/issues/23
         mask = attention_rollout(input_tensor)
         name = "attention_rollout_{:.3f}_{}.png".format(args.discard_ratio, args.head_fusion)
     else:
@@ -76,8 +76,8 @@ if __name__ == '__main__':
     np_img = np.array(img)[:, :, ::-1]
     mask = cv2.resize(mask, (np_img.shape[1], np_img.shape[0]))
     mask = show_mask_on_image(np_img, mask)
-    cv2.imshow("Input Image", np_img)
-    cv2.imshow(name, mask)
+    # cv2.imshow("Input Image", np_img)
+    # cv2.imshow(name, mask)
     cv2.imwrite("input.png", np_img)
     cv2.imwrite(name, mask)
-    cv2.waitKey(-1)
+    # cv2.waitKey(-1)
