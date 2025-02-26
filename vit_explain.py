@@ -39,8 +39,7 @@ def show_mask_on_image(img, mask):
     cam = cam / np.max(cam)
     return np.uint8(255 * cam)
 
-if __name__ == '__main__':
-    args = get_args()
+def main(args):
     model = torch.hub.load('facebookresearch/deit:main', 
         'deit_tiny_patch16_224', pretrained=True)
     model.eval()
@@ -81,3 +80,7 @@ if __name__ == '__main__':
     cv2.imwrite("input.png", np_img)
     cv2.imwrite(name, mask)
     # cv2.waitKey(-1)
+
+if __name__ == "__main__":
+    args = get_args()
+    main(args)
