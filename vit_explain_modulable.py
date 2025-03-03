@@ -9,6 +9,7 @@ import json
 
 from vit_rollout import VITAttentionRollout
 from vit_grad_rollout import VITAttentionGradRollout
+from vit_explainability import VITTransformerExplainability
 
 def get_args():
     """
@@ -97,6 +98,15 @@ def run_explanation(method, model, input_tensor, args):
         explanation = VITAttentionGradRollout(model, discard_ratio=args.discard_ratio)
         mask = explanation(input_tensor, args.category_index)
         name = "grad_rollout_{}_{:.3f}_{}.png".format(args.category_index, args.discard_ratio, args.head_fusion)
+    
+    elif method == 'explainability':
+        print("Doing New Transformer Explainability Method")
+        # Create an instance of the new explainer
+        explanation = VITTransformerExplainability(model, attention_layer_name='attn_drop',
+                                                   head_fusion=args.head_fusion)
+        # Pass the target class if needed (or leave as None to use the predicted class)
+        mask = explanation(input_tensor, target_class=args.category_index)
+        name = "ours_explanation.png"
 
 
     # Vous pouvez ajouter ici d'autres méthodes :
