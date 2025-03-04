@@ -9,6 +9,19 @@ import json
 
 from vit_rollout import VITAttentionRollout
 from vit_grad_rollout import VITAttentionGradRollout
+from vit_explainability import VITTransformerExplainability
+from vit_LRPexplain import VITTransformerLRPExplainability
+
+
+def get_default_attention_layer(model_name):
+    # Define the default attention layer for each model.
+    defaults = {
+        "deit_tiny_patch16_224": "attn_drop",
+        # Add more models and their defaults if needed:
+        # "vit_base_patch16_224": "layer_name_for_vit_base",
+    }
+    return defaults.get(model_name, "attn_drop")  # Fallback to 'attn_drop' if model not found
+
 
 def get_args():
     """
@@ -33,9 +46,15 @@ def get_args():
     
     parser.add_argument('--model_name', type=str, default='deit_tiny_patch16_224',
                         help='Nom du modèle à charger')
+    
     # Vous pouvez aussi ajouter un argument pour les paramètres sous forme de chaîne JSON ou autres.
     parser.add_argument('--model_params', type=str, default='{"pretrained": true}',
                         help='Paramètres du modèle en JSON (ex: \'{"pretrained": true}\')')
+    
+    # Nouvel argument pour spécifier le nom de la couche d'attention
+    parser.add_argument('--attention_layer_name', type=str, default='attn_drop',
+                        help='Nom de la couche d\'attention à utiliser pour l\'explication')
+
     
 
     args = parser.parse_args()
@@ -88,7 +107,7 @@ def run_explanation(method, model, input_tensor, args):
         print("Doing Attention Rollout")
         explanation = VITAttentionRollout(model, head_fusion=args.head_fusion,
                                            discard_ratio=args.discard_ratio,
-                                           attention_layer_name='attn_drop')
+                                           attention_layer_name=args.attention_layer_name)
         mask = explanation(input_tensor)
         name = "attention_rollout_{:.3f}_{}.png".format(args.discard_ratio, args.head_fusion)
 
@@ -97,6 +116,26 @@ def run_explanation(method, model, input_tensor, args):
         explanation = VITAttentionGradRollout(model, discard_ratio=args.discard_ratio)
         mask = explanation(input_tensor, args.category_index)
         name = "grad_rollout_{}_{:.3f}_{}.png".format(args.category_index, args.discard_ratio, args.head_fusion)
+    
+    elif method == 'explainability':
+        print("Doing New Transformer Explainability Method")
+        # Create an instance of the new explainer
+        explanation = VITTransformerExplainability(model, attention_layer_name=args.attention_layer_name,
+                                                   head_fusion=args.head_fusion)
+        # Pass the target class if needed (or leave as None to use the predicted class)
+        mask = explanation(input_tensor, target_class=args.category_index)
+        name = "ours_explanation.png"
+    
+    elif method =="LRP":
+        print("Doing LRP Explainability Method")
+        explanation = VITTransformerLRPExplainability(model, attention_layer_name=args.attention_layer_name, head_fusion=args.head_fusion)
+        # Pass the target class if needed (or leave as None to use the predicted class)
+        mask = explanation(input_tensor, target_class=args.category_index)
+        name = "LRP_explanation.png"
+
+
+        #print top 5 predictions
+        print("Top 5 predictions:", model(input_tensor).topk(5))
 
 
     # Vous pouvez ajouter ici d'autres méthodes :
@@ -143,5 +182,6 @@ def main(args, model=None):
     # cv2.waitKey(-1)
 
 if __name__ == "__main__":
+    print("Running main")
     args = get_args()
     main(args)
