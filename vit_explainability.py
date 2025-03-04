@@ -23,7 +23,7 @@ class VITTransformerExplainability:
                 module.register_forward_hook(self.forward_hook)
                 # Note: backward hooks on modules are deprecated in favor of registering
                 # hooks on the outputs. For simplicity, we use register_backward_hook here.
-                module.register_backward_hook(self.backward_hook)
+                module.register_full_backward_hook(self.backward_hook)
 
     def forward_hook(self, module, input, output):
         # Store the attention maps.
