@@ -1,20 +1,22 @@
 import networkx as nx
-import numpy as np
 import torch
+from PIL import Image
+import numpy
+import sys
+from torchvision import transforms
+import numpy as np
+import cv2
 
 def get_adjmat(att_mat, input_tokens):
-    """
-    Crée la matrice d'adjacence à partir de la matrice d'attention et des tokens d'entrée.
-    """
     n_layers, length, _ = att_mat.shape
     adj_mat = np.zeros(((n_layers + 1) * length, (n_layers + 1) * length))
     labels_to_index = {}
     
-    # Ajout des tokens d'entrée
+    # Construction du dictionnaire de labels
     for k in np.arange(length):
         labels_to_index[str(k) + "_" + input_tokens[k]] = k
 
-    # Pour chaque couche, associer chaque token avec son index
+    # Remplissage de la matrice d'adjacence
     for i in np.arange(1, n_layers + 1):
         for k_f in np.arange(length):
             index_from = (i) * length + k_f
@@ -38,8 +40,8 @@ def get_attention_flow(adjmat, labels_to_index, input_nodes, length):
 
     # Boucler sur les nœuds et calculer les flux
     for label, u in labels_to_index.items():
-        if label in input_nodes:  # Vérifiez que le label est bien dans les nœuds d'entrée
-            for v in labels_to_index.values():
+        if u not in input_nodes:
+            for v in input_nodes:
                 flow_value = nx.maximum_flow_value(G, u, v, flow_func=nx.algorithms.flow.edmonds_karp)
                 flow_values[u, v] = flow_value
 
@@ -52,39 +54,48 @@ class VITAttentionFlow:
         self.attentions = []
 
     def get_attention(self, module, input, output):
-        """
-        Récupère les matrices d'attention à partir du modèle.
-        """
         self.attentions.append(output.cpu())
+        print(f"Attention capturée : {output.shape}")
+
+    def attach_attention_hook(self):
+        for name, module in self.model.named_modules():
+            if 'attn' in name:
+                module.register_forward_hook(self.get_attention)
+                print(f"Hook attaché à: {name}")
 
     def compute_attention_flow(self, attentions, input_tokens):
-        """
-        Cette méthode va calculer les flux d'attention sur la base des matrices d'attention.
-        """
-        # Obtenir la matrice d'adjacence et les indices des labels
         adjmat, labels_to_index = get_adjmat(attentions[0], input_tokens)
-
-        # Définir les tokens d'entrée, ici la première position est la classe
         input_nodes = ['class']
-
-        # Calcul des flux d'attention
         flow_values = get_attention_flow(adjmat, labels_to_index, input_nodes, len(input_tokens))
-
         return flow_values
 
-    def __call__(self, input_tensor, input_tokens):
-        """
-        Calcule les flux d'attention pour une image ou un tensor d'entrée.
-        """
+    def __call__(self, input_tensor, input_tokens, np_img):
         self.attentions = []
         with torch.no_grad():
             output = self.model(input_tensor)
+            if not self.attentions:
+                print("Aucune attention capturée après l'inférence.")
+                return None
 
-        # Calculer les flux d'attention
         flow_values = self.compute_attention_flow(self.attentions, input_tokens)
+        mask = flow_values[0, 1:]
 
-        # Récupérer le masque de l'attention (flux vers les patches)
-        mask = flow_values[0, 1:]  # On suppose que la classe est le premier élément
-        mask = mask / np.max(mask)  # Normalisation du masque
+        # Vérification du masque
+        print("Mask shape:", mask.shape)
+        if mask.size == 0:
+            raise ValueError("Le masque est vide. Vérifie les flux d'attention.")
 
-        return mask
+        mask = mask / np.max(mask)  # Normalisation
+
+        # Vérification de l'image np_img avant redimensionnement
+        if np_img.size == 0:
+            raise ValueError("L'image d'entrée est vide.")
+        print("Image dimensions:", np_img.shape)
+
+        # Redimensionnement avec une vérification des dimensions
+        try:
+            mask_resized = cv2.resize(mask, (np_img.shape[1], np_img.shape[0]))
+        except cv2.error as e:
+            raise ValueError(f"Erreur lors du redimensionnement: {e}")
+
+        return mask_resized

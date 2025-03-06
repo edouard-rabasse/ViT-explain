@@ -44,6 +44,10 @@ def main(args):
         'deit_tiny_patch16_224', pretrained=True)
     model.eval()
 
+    # Afficher les noms des modules
+    for name, module in model.named_modules():
+        print(name)  # Cela imprimera tous les modules dans le modèle
+
     if args.use_cuda:
         model = model.cuda()
 
