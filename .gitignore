@@ -9,4 +9,6 @@ out/
 
 Test_Arthur_0403.ipynb/
 Remarques_Arthur.md/
-
+pcam/
+data/
+.DS_Store
