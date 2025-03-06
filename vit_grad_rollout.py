@@ -59,6 +59,8 @@ class VITAttentionGradRollout:
         output = self.model(input_tensor)
         category_mask = torch.zeros(output.size())
         category_mask[:, category_index] = 1
+        # output to cpu
+        output = output.cpu()
         loss = (output*category_mask).sum()
         loss.backward()
 
