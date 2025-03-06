@@ -27,6 +27,7 @@ class LRP:
         kwargs = {"alpha": 1}
         if index == None:
             index = np.argmax(output.cpu().data.numpy(), axis=-1)
+            print("Vit_explanation_generator, index is ", index)
 
         one_hot = np.zeros((1, output.size()[-1]), dtype=np.float32)
         one_hot[0, index] = 1

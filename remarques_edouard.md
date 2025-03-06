@@ -31,6 +31,7 @@ Le script principal (`vit_explain_modulable.py`) réalise les étapes suivantes 
    La fonction `run_explanation(method, model, input_tensor, args)` sélectionne la méthode d'explication à utiliser en fonction de l'argument `--method` et exécute la méthode correspondante :
    - **Attention Rollout** : Utilise `VITAttentionRollout`.
    - **Gradient Attention Rollout** : Utilise `VITAttentionGradRollout`.
+   - **LRP Explaination** : Utilise VITTransformerLRPexact. Reconstruit les modèles en ajoutant une fonction relprop. Pour l'instant, ne sont implémentés que deit_tiny et deit_base
    - **Autres méthodes** : Possibilité d’ajouter d’autres cas.
 
 5. **Superposition du masque et sauvegarde**  

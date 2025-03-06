@@ -11,6 +11,7 @@ from vit_rollout import VITAttentionRollout
 from vit_grad_rollout import VITAttentionGradRollout
 from vit_explainability import VITTransformerExplainability
 from vit_LRPmimic import VITTransformerLRPmimic
+from vit_LRPexact import load_model_LRP, VITTransformerLRPexact
 
 
 def get_default_attention_layer(model_name):
@@ -131,16 +132,22 @@ def run_explanation(method, model, input_tensor, args):
         mask = explanation(input_tensor, target_class=args.category_index)
         name = "out/ours_explanation.png"
     
-    elif method =="LRP":
-        print("Doing LRP Explainability Method")
+    elif method =="LRP_mimic":
+        print("Doing LRP mimic Method")
         explanation = VITTransformerLRPmimic(model, attention_layer_name=args.attention_layer_name, head_fusion=args.head_fusion)
         # Pass the target class if needed (or leave as None to use the predicted class)
         mask = explanation(input_tensor, target_class=args.category_index)
-        name = "out/LRP_explanation_{}_{}.png".format(args.category_index, args.head_fusion)
+        name = "out/LRP_mimic_explanation_{}_{}.png".format(args.category_index, args.head_fusion)
 
 
         #print top 5 predictions
         print("Top 5 predictions:", model(input_tensor).topk(5))
+    
+    elif method == 'LRP_exact':
+        print("Doing LRP Exact Method")
+        explanation = VITTransformerLRPexact(model)
+        mask = explanation(input_tensor, category_index=args.category_index)
+        name = "out/LRP_exact_explanation.png"
 
 
     # Vous pouvez ajouter ici d'autres méthodes :
@@ -160,7 +167,7 @@ def main(args, model=None):
         transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
     ])
     img = Image.open(args.image_path)
-    img = img.resize((224, 224))
+    # img = img.resize((224, 224))
     input_tensor = transform(img).unsqueeze(0)
     if args.use_cuda:
         input_tensor = input_tensor.cuda()
@@ -169,7 +176,11 @@ def main(args, model=None):
     model_parameters = json.loads(args.model_params)
     
     # Charger le modèle via la fonction load_model
-    model = load_model(args.model_name, model_parameters)
+    if args.method=="LRP_exact":
+        print("loading model with LRP")
+        model = load_model_LRP(args.model_name, model_parameters)
+    else:
+        model = load_model(args.model_name, model_parameters)
 
 
     if args.use_cuda:

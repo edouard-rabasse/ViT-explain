@@ -1,8 +1,12 @@
+# based on https://arxiv.org/pdf/2012.09838
+# This is a simplified version. We did'nt implement the LRP method for the final layer.
+
+
 import torch
 import numpy as np
 import cv2
 
-class VITTransformerLRPExplainability:
+class VITTransformerLRPmimic:
     def __init__(self, model, attention_layer_name='attn_drop', head_fusion="mean"):
         """
         Initialize the LRP-based explainer.
