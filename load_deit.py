@@ -29,7 +29,6 @@ def load_deit(weights_path):
 
 ## Exemple d'utilisation
 '''
-from load_deit import load_deit
 weights_path = 'deit_tiny_head_weights.pth'
 model = load_deit(weights_path)
 print(model)
