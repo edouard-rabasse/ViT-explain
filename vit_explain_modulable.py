@@ -43,13 +43,13 @@ def get_args():
     
     # Nouvel argument pour sélectionner la méthode
     parser.add_argument('--method', type=str, default='attention',
-                        help='Méthode d\'explanation : "attention", "gradient", ou autres')
+                        help='Méthode d\'explanation : "attention", "gradient", "explainability", "LRP_mimic", "LRP_exact"')
     
     parser.add_argument('--model_name', type=str, default='deit_tiny',
                         help='Nom du modèle à charger')
     
     # Vous pouvez aussi ajouter un argument pour les paramètres sous forme de chaîne JSON ou autres.
-    parser.add_argument('--model_params', type=str, default='{"pretrained": true, "weight_path": "weigths/deit_tiny_head_weights.pth"}',
+    parser.add_argument('--model_params', type=str, default='{"pretrained": true, "weights_path": "weights/deit_tiny_head_weights.pth"}',
                         help='Paramètres du modèle en JSON (ex: \'{"pretrained": true}\')')
     
     # Nouvel argument pour spécifier le nom de la couche d'attention
@@ -94,7 +94,7 @@ def load_model(model_name, parameters):
         
         model = torch.hub.load('facebookresearch/deit:main', 'deit_base_patch16_224', pretrained=True)
     
-    elif model_name == "deit_tiny_custom":
+    elif model_name == "deit_tiny_finetuned":
         ## fine tuned model
         from load_deit import load_deit
         weights_path = parameters["weights_path"]
@@ -185,6 +185,7 @@ def main(args, model=None):
     if args.method=="LRP_exact":
         print("loading model with LRP")
         model = load_model_LRP(args.model_name, model_parameters)
+    
     else:
         model = load_model(args.model_name, model_parameters)
 
@@ -204,6 +205,7 @@ def main(args, model=None):
     # cv2.imshow(name, mask)
     cv2.imwrite("input.png", np_img)
     cv2.imwrite(name, mask)
+    print("Explanation saved as", name)
     # cv2.waitKey(-1)
 
 if __name__ == "__main__":
