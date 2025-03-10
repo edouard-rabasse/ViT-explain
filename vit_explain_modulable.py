@@ -49,7 +49,7 @@ def get_args():
                         help='Nom du modèle à charger')
     
     # Vous pouvez aussi ajouter un argument pour les paramètres sous forme de chaîne JSON ou autres.
-    parser.add_argument('--model_params', type=str, default='{"pretrained": true}',
+    parser.add_argument('--model_params', type=str, default='{"pretrained": true, "weight_path": "weigths/deit_tiny_head_weights.pth"}',
                         help='Paramètres du modèle en JSON (ex: \'{"pretrained": true}\')')
     
     # Nouvel argument pour spécifier le nom de la couche d'attention
@@ -88,11 +88,17 @@ def load_model(model_name, parameters):
     print(model_name)
     if model_name == "deit_tiny":
         # Ici, parameters peut être un dictionnaire contenant des options comme pretrained=True
-        model = torch.hub.load('facebookresearch/deit:main', "deit_tiny_patch16_224", **parameters)
+        model = torch.hub.load('facebookresearch/deit:main', "deit_tiny_patch16_224", parameters["pretrained"])
     
     elif model_name == "deit_base":
         
         model = torch.hub.load('facebookresearch/deit:main', 'deit_base_patch16_224', pretrained=True)
+    
+    elif model_name == "deit_tiny_custom":
+        ## fine tuned model
+        from load_deit import load_deit
+        weights_path = parameters["weights_path"]
+        model = load_deit(weights_path)
 
 
     elif model_name == "autre_modele":
