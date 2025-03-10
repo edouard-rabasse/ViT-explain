@@ -96,8 +96,13 @@ def load_model_LRP(model_name, model_parameters):
     
     if model_name == 'deit_tiny':
         from Transformer_Explainability.baselines.ViT.ViT_LRP import deit_tiny_patch16_224 as vit_LRP
+        model = vit_LRP(pretrained=True)
     elif model_name == 'deit_base':
         from Transformer_Explainability.baselines.ViT.ViT_LRP import deit_base_patch16_224 as vit_LRP
-    model = vit_LRP(pretrained=True)
+        model = vit_LRP(pretrained=True)
+    elif model_name == 'deit_tiny_finetuned':
+        from Transformer_Explainability.baselines.ViT.ViT_LRP import deit_tiny_finetuned as vit_LRP
+        assert 'weights_path' in model_parameters, 'weight_path is required for deit_tiny_finetuned'
+        model = vit_LRP(model_parameters["weights_path"],  pretrained=True)
     # model.eval()
     return model

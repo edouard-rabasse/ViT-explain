@@ -455,3 +455,54 @@ def deit_tiny_patch16_224(pretrained=False, **kwargs):
         )
         model.load_state_dict(checkpoint["model"])
     return model
+
+class LinearRelprop(nn.Linear):
+    def forward(self, x):
+        # Save the input for use in relprop.
+        self.input = x
+        return super().forward(x)
+    
+    def relprop(self, cam, epsilon=1e-6, **kwargs):
+        """
+        A simple implementation of the epsilon-rule for LRP in a linear layer.
+        For each output neuron j, the relevance is distributed back to inputs i as:
+        
+            R_i = x_i * sum_j (w_{ij} * R_j) / (z_j + epsilon)
+            
+        where z_j = sum_i x_i * w_{ij}.
+        """
+        # Compute the forward pass pre-activation output (z)
+        # We assume self.input is saved during the forward pass.
+        z = torch.matmul(self.input, self.weight.t()) + epsilon  # shape: (batch, out_features)
+        # Compute the contribution of each input neuron
+        s = cam / z  # shape: (batch, out_features)
+        c = torch.matmul(s, self.weight)  # shape: (batch, in_features)
+        # Relevance for inputs is element-wise multiplied by the original input.
+        return self.input * c
+
+def deit_tiny_finetuned(head_weights_path, pretrained=True, **kwargs):
+    model = VisionTransformer(
+        patch_size=16,
+        embed_dim=192,   # Tiny variant
+        depth=12,
+        num_heads=3,     # Typically, tiny variants use fewer heads
+        mlp_ratio=4,
+        qkv_bias=True,
+        **kwargs
+    )
+    model.default_cfg = _cfg()
+    if pretrained:
+        checkpoint = torch.hub.load_state_dict_from_url(
+            url="https://dl.fbaipublicfiles.com/deit/deit_tiny_patch16_224-a1311bcf.pth",
+            map_location="cpu",
+            check_hash=True
+        )
+        model.load_state_dict(checkpoint["model"])
+    # Modify the classification head to output 2 classes.
+    in_features = model.head.in_features
+    model.head = LinearRelprop(in_features, 2)
+    # Load custom head weights from the provided file.
+    head_state_dict = torch.load(head_weights_path, map_location=torch.device('cpu'))
+    model.head.load_state_dict(head_state_dict)
+    return model
+
