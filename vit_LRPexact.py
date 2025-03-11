@@ -22,17 +22,30 @@ class VITTransformerLRPexact:
         self.attribution_generator = LRP(model)
         self.use_thresholding = use_thresholding
 
-    def __call__(self, original_image, category_index=None):
+    def __call__(self, original_image, category_index=None, method="transformer_attribution"):
         # Generate the attribution (assumed to be low resolution)
-        transformer_attribution = self.attribution_generator.generate_LRP(
-        original_image, 
-        method="transformer_attribution", 
-        index=category_index
-        ).detach()
-        transformer_attribution = transformer_attribution.reshape(1, 1, 14, 14)
-        transformer_attribution = torch.nn.functional.interpolate(transformer_attribution, scale_factor=16, mode='bilinear')
-        transformer_attribution = transformer_attribution.reshape(224, 224).cpu().numpy()
-        mask = (transformer_attribution - transformer_attribution.min()) / (transformer_attribution.max() - transformer_attribution.min() + 1e-8)
+        if method=='full':
+            transformer_attribution = self.attribution_generator.generate_LRP(
+                original_image, 
+                method=method, 
+                index=category_index
+            ).detach()
+            transformer_attribution = transformer_attribution.reshape(1, 1, 224, 224)
+            transformer_attribution = torch.nn.functional.interpolate(transformer_attribution, scale_factor=1, mode='bilinear')
+            transformer_attribution = transformer_attribution.reshape(224, 224).cpu().numpy()
+            mask = (transformer_attribution - transformer_attribution.min()) / (transformer_attribution.max() - transformer_attribution.min() + 1e-8)
+        else:
+            transformer_attribution = self.attribution_generator.generate_LRP(
+            original_image, 
+            method=method, 
+            index=category_index
+            ).detach()
+            # if method=="full":
+
+            transformer_attribution = transformer_attribution.reshape(1, 1, 14, 14)
+            transformer_attribution = torch.nn.functional.interpolate(transformer_attribution, scale_factor=16, mode='bilinear')
+            transformer_attribution = transformer_attribution.reshape(224, 224).cpu().numpy()
+            mask = (transformer_attribution - transformer_attribution.min()) / (transformer_attribution.max() - transformer_attribution.min() + 1e-8)
 
         if self.use_thresholding:
             mask = (mask * 255).astype(np.uint8)
@@ -96,8 +109,13 @@ def load_model_LRP(model_name, model_parameters):
     
     if model_name == 'deit_tiny':
         from Transformer_Explainability.baselines.ViT.ViT_LRP import deit_tiny_patch16_224 as vit_LRP
+        model = vit_LRP(pretrained=True)
     elif model_name == 'deit_base':
         from Transformer_Explainability.baselines.ViT.ViT_LRP import deit_base_patch16_224 as vit_LRP
-    model = vit_LRP(pretrained=True)
+        model = vit_LRP(pretrained=True)
+    elif model_name == 'deit_tiny_finetuned':
+        from Transformer_Explainability.baselines.ViT.ViT_LRP import deit_tiny_finetuned as vit_LRP
+        assert 'weights_path' in model_parameters, 'weight_path is required for deit_tiny_finetuned'
+        model = vit_LRP(model_parameters["weights_path"],  pretrained=True)
     # model.eval()
     return model

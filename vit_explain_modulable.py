@@ -43,13 +43,15 @@ def get_args():
     
     # Nouvel argument pour sélectionner la méthode
     parser.add_argument('--method', type=str, default='attention',
-                        help='Méthode d\'explanation : "attention", "gradient", ou autres')
+                        help='Méthode d\'explanation : "attention", "gradient", "transformer_attribution", "full_LRP", "partial_LRP"')
     
     parser.add_argument('--model_name', type=str, default='deit_tiny',
                         help='Nom du modèle à charger')
     
     # Vous pouvez aussi ajouter un argument pour les paramètres sous forme de chaîne JSON ou autres.
-    parser.add_argument('--model_params', type=str, default='{"pretrained": true, "weight_path": "weigths/deit_tiny_head_weights.pth"}',
+
+    parser.add_argument('--model_params', type=str, default='{"pretrained": true, "weights_path": "weights/deit_tiny_head_weights.pth"}',
+
                         help='Paramètres du modèle en JSON (ex: \'{"pretrained": true}\')')
     
     # Nouvel argument pour spécifier le nom de la couche d'attention
@@ -79,7 +81,7 @@ def show_mask_on_image(img, mask):
     return np.uint8(255 * cam)
 
 
-def load_model(model_name, parameters):
+def load_model(model_name, parameters,):
     """
     TODO : si on veut pouvoir charger un modèle préentrainé autre que celui de Facebook.
     Par exemple, en fonction de model_name, on peut charger un modèle depuis torch.hub,
@@ -88,17 +90,23 @@ def load_model(model_name, parameters):
     print(model_name)
     if model_name == "deit_tiny":
         # Ici, parameters peut être un dictionnaire contenant des options comme pretrained=True
-        model = torch.hub.load('facebookresearch/deit:main', "deit_tiny_patch16_224", parameters["pretrained"])
+
+        # model = torch.hub.load('facebookresearch/deit:main', "deit_tiny_patch16_224", parameters["pretrained"])
+        model = load_model_LRP(model_name, parameters)
+
     
     elif model_name == "deit_base":
         
         model = torch.hub.load('facebookresearch/deit:main', 'deit_base_patch16_224', pretrained=True)
     
-    elif model_name == "deit_tiny_custom":
+
+    elif model_name == "deit_tiny_finetuned":
         ## fine tuned model
-        from load_deit import load_deit
-        weights_path = parameters["weights_path"]
-        model = load_deit(weights_path)
+        # from load_deit import load_deit
+        # weights_path = parameters["weights_path"]
+        # model = load_deit(weights_path)
+        model = load_model_LRP(model_name, parameters)
+
 
 
     elif model_name == "autre_modele":
@@ -117,6 +125,9 @@ def run_explanation(method, model, input_tensor, args):
 
     if method == 'attention':
         print("Doing Attention Rollout")
+        assert args.head_fusion in ["mean", "max", "min"], "Invalid head fusion type"
+        assert 0 < args.discard_ratio < 1, "Invalid discard ratio"
+        assert args.attention_layer_name is not None, "Attention layer name is required"
         explanation = VITAttentionRollout(model, head_fusion=args.head_fusion,
                                            discard_ratio=args.discard_ratio,
                                            attention_layer_name=args.attention_layer_name)
@@ -129,31 +140,48 @@ def run_explanation(method, model, input_tensor, args):
         mask = explanation(input_tensor, args.category_index)
         name = "out/grad_rollout_{}_{:.3f}_{}.png".format(args.category_index, args.discard_ratio, args.head_fusion)
     
-    elif method == 'explainability':
-        print("Doing New Transformer Explainability Method")
-        # Create an instance of the new explainer
-        explanation = VITTransformerExplainability(model, attention_layer_name=args.attention_layer_name,
-                                                   head_fusion=args.head_fusion)
-        # Pass the target class if needed (or leave as None to use the predicted class)
-        mask = explanation(input_tensor, target_class=args.category_index)
-        name = "out/ours_explanation.png"
+    # elif method == 'explainability':
+    #     print("Doing New Transformer Explainability Method")
+    #     # Create an instance of the new explainer
+    #     explanation = VITTransformerExplainability(model, attention_layer_name=args.attention_layer_name,
+    #                                                head_fusion=args.head_fusion)
+    #     # Pass the target class if needed (or leave as None to use the predicted class)
+    #     mask = explanation(input_tensor, target_class=args.category_index)
+    #     name = "out/ours_explanation.png"
     
-    elif method =="LRP_mimic":
-        print("Doing LRP mimic Method")
-        explanation = VITTransformerLRPmimic(model, attention_layer_name=args.attention_layer_name, head_fusion=args.head_fusion)
-        # Pass the target class if needed (or leave as None to use the predicted class)
-        mask = explanation(input_tensor, target_class=args.category_index)
-        name = "out/LRP_mimic_explanation_{}_{}.png".format(args.category_index, args.head_fusion)
+    # elif method =="LRP_mimic":
+    #     print("Doing LRP mimic Method")
+    #     explanation = VITTransformerLRPmimic(model, attention_layer_name=args.attention_layer_name, head_fusion=args.head_fusion)
+    #     # Pass the target class if needed (or leave as None to use the predicted class)
+    #     mask = explanation(input_tensor, target_class=args.category_index)
+    #     name = "out/LRP_mimic_explanation_{}_{}.png".format(args.category_index, args.head_fusion)
 
 
-        #print top 5 predictions
-        print("Top 5 predictions:", model(input_tensor).topk(5))
+        # #print top 5 predictions
+        # print("Top 5 predictions:", model(input_tensor).topk(5))
     
-    elif method == 'LRP_exact':
-        print("Doing LRP Exact Method")
+    elif method == 'transformer_attribution':
+        assert args.use_cuda, "transformer attribution method requires cuda"
+        print("Doing transformer attribution Method")
+        # ensure the model has a relprop method
+        assert hasattr(model, 'relprop'), "Model does not have a relprop method"
         explanation = VITTransformerLRPexact(model)
-        mask = explanation(input_tensor, category_index=args.category_index)
+        mask = explanation(input_tensor, category_index=args.category_index, method="transformer_attribution")
+        name = "out/transformer_attribution_explanation.png"
+    
+    elif method == 'full_LRP':
+        assert args.use_cuda, "full LRP method requires cuda"
+        print("Doing LRP exact Method")
+        explanation = VITTransformerLRPexact(model)
+        mask = explanation(input_tensor, category_index=args.category_index, method = "full")
         name = "out/LRP_exact_explanation.png"
+    
+    elif method == 'partial_LRP':
+        assert args.use_cuda, "partial LRP method requires cuda"
+        print("Doing partial LRP")
+        explanation = VITTransformerLRPexact(model)
+        mask = explanation(input_tensor, category_index=args.category_index, method = "last_layer")
+        name = "out/LRP_partial_explanation.png"
 
 
     # Vous pouvez ajouter ici d'autres méthodes :
@@ -182,9 +210,10 @@ def main(args, model=None):
     model_parameters = json.loads(args.model_params)
     
     # Charger le modèle via la fonction load_model
-    if args.method=="LRP_exact":
+    if args.method in ["transformer_attribution", "full_LRP", "partial_LRP"]:
         print("loading model with LRP")
         model = load_model_LRP(args.model_name, model_parameters)
+    
     else:
         model = load_model(args.model_name, model_parameters)
 
@@ -204,6 +233,7 @@ def main(args, model=None):
     # cv2.imshow(name, mask)
     cv2.imwrite("input.png", np_img)
     cv2.imwrite(name, mask)
+    print("Explanation saved as", name)
     # cv2.waitKey(-1)
 
 if __name__ == "__main__":
