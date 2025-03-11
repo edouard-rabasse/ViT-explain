@@ -13,3 +13,6 @@ pcam/
 data/
 .DS_Store
 out/
+dataset/
+covidqu/
+comparisons/

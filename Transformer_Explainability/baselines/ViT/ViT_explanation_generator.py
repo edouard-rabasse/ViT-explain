@@ -37,9 +37,11 @@ class LRP:
 
         self.model.zero_grad()
         one_hot.backward(retain_graph=True)
-
-        return self.model.relprop(torch.tensor(one_hot_vector).to(input.device), method=method, is_ablation=is_ablation,
-                                  start_layer=start_layer, **kwargs)
+        ## assert return is not None
+        res = self.model.relprop(torch.tensor(one_hot_vector).to(input.device), method=method, is_ablation=is_ablation,
+                                 start_layer=start_layer, **kwargs)
+        assert res is not None
+        return res
 
 
 

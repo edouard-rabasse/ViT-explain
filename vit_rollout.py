@@ -59,7 +59,7 @@ class VITAttentionRollout:
 
     def __call__(self, input_tensor):
         self.attentions = []
-        with torch.no_grad():
-            output = self.model(input_tensor)
+        # with torch.no_grad():
+        output = self.model(input_tensor)
 
         return rollout(self.attentions, self.discard_ratio, self.head_fusion)
