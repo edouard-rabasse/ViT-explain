@@ -7,6 +7,7 @@ import numpy as np
 import cv2
 import json 
 
+from vit_raw import VITRawAttention
 from vit_rollout import VITAttentionRollout
 from vit_grad_rollout import VITAttentionGradRollout
 from vit_explainability import VITTransformerExplainability
@@ -154,6 +155,15 @@ def run_explanation(method, model, input_tensor, args):
         explanation = VITTransformerLRPexact(model)
         mask = explanation(input_tensor, category_index=args.category_index)
         name = "out/LRP_exact_explanation.png"
+
+    elif args.method == 'raw_attention':
+        print("Doing Raw Attention")
+        raw_attention = VITRawAttention(model, attention_layer_name='attn_drop')
+        attentions = raw_attention(input_tensor)
+        # For simplicity, visualize the attention from the last layer
+        mask = attentions[-1].mean(dim=1)[0, 0, 1:].reshape(14, 14).numpy()
+        mask = mask / np.max(mask)
+        name = "raw_attention.png"
 
 
     # Vous pouvez ajouter ici d'autres méthodes :
