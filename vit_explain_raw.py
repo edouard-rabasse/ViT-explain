@@ -5,9 +5,10 @@ from PIL import Image
 from torchvision import transforms
 import numpy as np
 import cv2
-from vit_flow import compute_joint_attention, generate_attention_mask
+
 from vit_rollout import VITAttentionRollout
 from vit_grad_rollout import VITAttentionGradRollout
+from vit_raw import VITRawAttention
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -22,6 +23,8 @@ def get_args():
                         help='How many of the lowest 14x14 attention paths should we discard')
     parser.add_argument('--category_index', type=int, default=None,
                         help='The category index for gradient rollout')
+    parser.add_argument('--method', type=str, default='rollout',
+                        help='Method to use: rollout, grad_rollout, raw_attention')
     args = parser.parse_args()
     args.use_cuda = args.use_cuda and torch.cuda.is_available()
     if args.use_cuda:
@@ -38,25 +41,6 @@ def show_mask_on_image(img, mask):
     cam = heatmap + np.float32(img)
     cam = cam / np.max(cam)
     return np.uint8(255 * cam)
-
-def extract_attention_maps(model, input_tensor):
-    # Hooks to extract attention maps
-    attention_maps = []
-
-    def hook_fn(module, input, output):
-        attention_maps.append(output.detach().cpu())
-
-    # Register hooks
-    for layer in model.blocks:
-        layer.attn.register_forward_hook(hook_fn)
-
-    # Forward pass
-    with torch.no_grad():
-        _ = model(input_tensor)
-
-    # Convert list of attention maps to a numpy array
-    attention_maps = torch.stack(attention_maps)
-    return attention_maps
 
 def main(args):
     model = torch.hub.load('facebookresearch/deit:main',
@@ -77,42 +61,34 @@ def main(args):
     if args.use_cuda:
         input_tensor = input_tensor.cuda()
 
-    if args.category_index is None:
+    if args.method == 'rollout':
         print("Doing Attention Rollout")
         attention_rollout = VITAttentionRollout(model, head_fusion=args.head_fusion,
             discard_ratio=args.discard_ratio, attention_layer_name='attn_drop')
         mask = attention_rollout(input_tensor)
         name = "attention_rollout_{:.3f}_{}.png".format(args.discard_ratio, args.head_fusion)
-    else:
+    elif args.method == 'grad_rollout':
         print("Doing Gradient Attention Rollout")
         grad_rollout = VITAttentionGradRollout(model, discard_ratio=args.discard_ratio)
         mask = grad_rollout(input_tensor, args.category_index)
         name = "grad_rollout_{}_{:.3f}_{}.png".format(args.category_index,
             args.discard_ratio, args.head_fusion)
+    elif args.method == 'raw_attention':
+        print("Doing Raw Attention")
+        raw_attention = VITRawAttention(model, attention_layer_name='attn_drop')
+        attentions = raw_attention(input_tensor)
+        # For simplicity, visualize the attention from the last layer
+        mask = attentions[-1].mean(dim=1)[0, 0, 1:].reshape(14, 14).numpy()
+        mask = mask / np.max(mask)
+        name = "raw_attention.png"
+    else:
+        raise ValueError("Unknown method: {}".format(args.method))
 
     np_img = np.array(img)[:, :, ::-1]
     mask = cv2.resize(mask, (np_img.shape[1], np_img.shape[0]))
     mask = show_mask_on_image(np_img, mask)
     cv2.imwrite("input.png", np_img)
     cv2.imwrite(name, mask)
-
-    # Extract attention matrices from the model
-    attn_maps = extract_attention_maps(model, input_tensor)
-    attn_maps = attn_maps.numpy()
-
-    # Compute joint attention
-    joint_attentions = compute_joint_attention(attn_maps)
-
-    # Generate attention mask
-    attention_mask = generate_attention_mask(joint_attentions, args.discard_ratio, args.head_fusion)
-
-    # Resize the attention mask to match the image dimensions
-    attention_mask_resized = cv2.resize(attention_mask, (np_img.shape[1], np_img.shape[0]))
-
-    # Superpose the attention mask on the image
-    result_image = show_mask_on_image(np_img, attention_mask_resized)
-    cv2.imwrite("attention_mask_overlay.png", result_image)
-    print("Attention mask overlay saved as 'attention_mask_overlay.png'.")
 
 if __name__ == "__main__":
     args = get_args()
