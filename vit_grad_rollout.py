@@ -33,6 +33,7 @@ def grad_rollout(attentions, gradients, discard_ratio):
     width = int(mask.size(-1)**0.5)
     mask = mask.reshape(width, width).numpy()
     mask = mask / np.max(mask)
+    # mask = cv2.resize(mask, (224, 224), interpolation=cv2.INTER_NEAREST)
     return mask    
 
 class VITAttentionGradRollout:
