@@ -7,11 +7,10 @@ import numpy as np
 import cv2
 import json 
 
-from vit_rollout import VITAttentionRollout
-from vit_grad_rollout import VITAttentionGradRollout
-from vit_explainability import VITTransformerExplainability
-from vit_LRPmimic import VITTransformerLRPmimic
-from vit_LRPexact import load_model_LRP, VITTransformerLRPexact
+from explanation.vit_rollout import VITAttentionRollout
+from explanation.vit_grad_rollout import VITAttentionGradRollout
+from explanation.vit_explainability import VITTransformerExplainability
+from explanation.vit_LRPexact import load_model_LRP, VITTransformerLRPexact
 
 
 def get_default_attention_layer(model_name):
