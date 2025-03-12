@@ -74,6 +74,7 @@ def show_mask_on_image(img, mask):
     Fonction qui permet de superposer le masque sur l'image
     """
     img = np.float32(img) / 255
+    print(mask.shape)
     heatmap = cv2.applyColorMap(np.uint8(255 * mask), cv2.COLORMAP_JET)
     heatmap = np.float32(heatmap) / 255
     cam = heatmap + np.float32(img)
@@ -124,7 +125,7 @@ def run_explanation(method, model, input_tensor, args):
     """
 
     if method == 'attention':
-        print("Doing Attention Rollout")
+        # print("Doing Attention Rollout")
         assert args.head_fusion in ["mean", "max", "min"], "Invalid head fusion type"
         assert 0 < args.discard_ratio < 1, "Invalid discard ratio"
         assert args.attention_layer_name is not None, "Attention layer name is required"
@@ -135,7 +136,7 @@ def run_explanation(method, model, input_tensor, args):
         name = "out/attention_rollout_{:.3f}_{}.png".format(args.discard_ratio, args.head_fusion)
 
     elif method == 'gradient':
-        print("Doing Gradient Attention Rollout")
+        # print("Doing Gradient Attention Rollout")
         explanation = VITAttentionGradRollout(model, discard_ratio=args.discard_ratio)
         mask = explanation(input_tensor, args.category_index)
         name = "out/grad_rollout_{}_{:.3f}_{}.png".format(args.category_index, args.discard_ratio, args.head_fusion)
@@ -162,7 +163,7 @@ def run_explanation(method, model, input_tensor, args):
     
     elif method == 'transformer_attribution':
         assert args.use_cuda, "transformer attribution method requires cuda"
-        print("Doing transformer attribution Method")
+        # print("Doing transformer attribution Method")
         # ensure the model has a relprop method
         assert hasattr(model, 'relprop'), "Model does not have a relprop method"
         explanation = VITTransformerLRPexact(model)
@@ -171,14 +172,14 @@ def run_explanation(method, model, input_tensor, args):
     
     elif method == 'full_LRP':
         assert args.use_cuda, "full LRP method requires cuda"
-        print("Doing LRP exact Method")
+        # print("Doing LRP exact Method")
         explanation = VITTransformerLRPexact(model)
         mask = explanation(input_tensor, category_index=args.category_index, method = "full")
         name = "out/LRP_exact_explanation.png"
     
     elif method == 'partial_LRP':
         assert args.use_cuda, "partial LRP method requires cuda"
-        print("Doing partial LRP")
+        # print("Doing partial LRP")
         explanation = VITTransformerLRPexact(model)
         mask = explanation(input_tensor, category_index=args.category_index, method = "last_layer")
         name = "out/LRP_partial_explanation.png"
