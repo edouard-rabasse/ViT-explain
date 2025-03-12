@@ -3,8 +3,18 @@ examples/
 Remarques_Arthur.md/
 pcam/
 data/
+comparisons/
+dataset/
+out/
+
+Test_Arthur_0403.ipynb/
+Remarques_Arthur.md/
+pcam/
+data/
+.DS_Store
 out/
 dataset/
 covidqu/
 comparisons/
+out/
 
